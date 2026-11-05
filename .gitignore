@@ -4,3 +4,4 @@ __pycache__/
 *.pyc
 traces.jsonl
 .chroma/
+traces.jsonl
