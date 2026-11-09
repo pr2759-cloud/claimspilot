@@ -19,7 +19,7 @@ load_dotenv()
 
 DEFAULT_MAX_TOKENS = 1024
 TIMEOUT_SECONDS = 30.0
-SCHEMA_TOOL_NAME = "submit_result"  # the tool the model is forced to call for structured output
+SCHEMA_TOOL_NAME = "submit_result"  # name given to the JSON schema for structured output
 
 
 @dataclass
@@ -94,31 +94,40 @@ def _call_anthropic(messages, model, schema, temperature, max_tokens):
     return text, resp.usage.input_tokens, resp.usage.output_tokens
 
 
+# Models that rejected a non-default temperature (e.g. reasoning models like gpt-6-astra).
+# Learned on the first 400, so later calls skip the parameter without an extra round trip.
+_NO_TEMPERATURE: set[str] = set()
+
+
 @with_retries()
 def _call_openai(messages, model, schema, temperature, max_tokens):
     kwargs = {"model": model, "messages": messages, "max_completion_tokens": max_tokens}
-    if temperature is not None:
+    if temperature is not None and model not in _NO_TEMPERATURE:
         kwargs["temperature"] = temperature
     if schema is not None:
-        kwargs["tools"] = [{
-            "type": "function",
-            "function": {
-                "name": SCHEMA_TOOL_NAME,
-                "description": "Submit the final structured result.",
-                "parameters": schema,
-            },
-        }]
-        kwargs["tool_choice"] = {"type": "function", "function": {"name": SCHEMA_TOOL_NAME}}
+        # Native structured outputs. (A forced function tool is rejected by reasoning models
+        # on /v1/chat/completions, so the old "force a submit_result tool" trick is gone.)
+        kwargs["response_format"] = {
+            "type": "json_schema",
+            "json_schema": {"name": SCHEMA_TOOL_NAME, "schema": _close_objects(schema), "strict": True},
+        }
 
-    resp = _openai_client().chat.completions.create(**kwargs)
-    msg = resp.choices[0].message
+    try:
+        resp = _openai_client().chat.completions.create(**kwargs)
+    except openai.BadRequestError as e:
+        if "temperature" not in kwargs or "temperature" not in str(e):
+            raise
+        _NO_TEMPERATURE.add(model)
+        print(f"[llm] {model} only supports the default temperature; sending without it.")
+        del kwargs["temperature"]
+        resp = _openai_client().chat.completions.create(**kwargs)
 
-    if schema is not None:
-        if not msg.tool_calls:
-            raise ValueError("Model did not return the forced tool call")
-        text = msg.tool_calls[0].function.arguments  # already a JSON string
-    else:
-        text = msg.content or ""
+    choice = resp.choices[0]
+    if getattr(choice.message, "refusal", None):
+        raise ValueError(f"Model refused: {choice.message.refusal}")
+    if schema is not None and choice.finish_reason == "length":
+        raise ValueError("Output hit max_tokens before the JSON was complete")
+    text = choice.message.content or ""
     return text, resp.usage.prompt_tokens, resp.usage.completion_tokens
 
 
