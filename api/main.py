@@ -5,9 +5,11 @@ import openai
 from fastapi import HTTPException
 from pydantic import BaseModel, Field
 
+from api.ask import router as ask_router
 from api.triage import TriageError, TriageResult, triage_claim
 
 app = FastAPI(title="ClaimsPilot")
+app.include_router(ask_router)  # POST /ask (Module 2)
 
 @app.get("/health")
 def health():

@@ -8,3 +8,4 @@ pytest
 chromadb
 rank_bm25
 pypdf
+reportlab  # test-only: builds sample PDFs in tests/test_rag.py

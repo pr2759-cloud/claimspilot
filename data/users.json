@@ -1,0 +1,10 @@
+[
+  {"user_id": "u_001", "name": "Marcus Chen", "access_level": "customer"},
+  {"user_id": "u_002", "name": "Priya Natarajan", "access_level": "customer"},
+  {"user_id": "u_003", "name": "Jane Doe", "access_level": "customer"},
+  {"user_id": "u_004", "name": "Luis Ortega", "access_level": "customer"},
+  {"user_id": "u_005", "name": "Aisha Bello", "access_level": "customer"},
+  {"user_id": "u_006", "name": "Daniel Okafor", "access_level": "customer"},
+  {"user_id": "u_101", "name": "Priya Nair", "access_level": "agent"},
+  {"user_id": "u_201", "name": "Sam Okafor", "access_level": "adjuster"}
+]

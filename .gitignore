@@ -5,3 +5,4 @@ __pycache__/
 traces.jsonl
 .chroma/
 traces.jsonl
+data/index/
